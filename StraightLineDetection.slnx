@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="StraightLineDetection/StraightLineDetection.vcxproj" />
+  <Project Path="StraightLineDetection/StraightLineDetection.vcxproj" Id="1f95f49f-7a86-4c62-b5ca-911eb116abe6" />
 </Solution>
