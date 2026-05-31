@@ -24,4 +24,9 @@ public:
     static Accumulator computeSerial(const Image& edges,
         double thetaStepDeg = 1.0,
         double rhoStep = 1.0);
+
+	// Parallel version
+    static Accumulator computeParallel(const Image& edges,
+        double thetaStepDeg = 1.0,
+        double rhoStep = 1.0);
 };
