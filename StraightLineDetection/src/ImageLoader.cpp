@@ -8,17 +8,21 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+
 Image ImageLoader::load(const std::string& path) {
     Image img;
     int w, h, ch;
 
-    // Force load as RGB (3 channels) so we always know the format (for grayscale change to 0)
+    // Force load as RGB (3 channels) so we always know the format
+    // For grayscale support change to 0
     unsigned char* rawData = stbi_load(path.c_str(), &w, &h, &ch, 3);
 
     if (!rawData) {
         std::cerr << "[ImageLoader] Failed to load: " << path
             << " — " << stbi_failure_reason() << "\n";
-        return img; // empty
+        return img;
     }
 
     img.width = w;
@@ -35,7 +39,7 @@ Image ImageLoader::load(const std::string& path) {
 
 Image ImageLoader::toGrayscaleSerial(const Image& src) {
     if (src.empty()) return {};
-    if (src.channels == 1) return src; // already grayscale
+    if (src.channels == 1) return src;
 
     Image gray;
     gray.width = src.width;
@@ -43,13 +47,40 @@ Image ImageLoader::toGrayscaleSerial(const Image& src) {
     gray.channels = 1;
     gray.data.resize(src.width * src.height);
 
-    // Standard luminance formula: Y = 0.299R + 0.587G + 0.114B
     for (int i = 0; i < src.width * src.height; ++i) {
         uint8_t r = src.data[i * 3 + 0];
         uint8_t g = src.data[i * 3 + 1];
         uint8_t b = src.data[i * 3 + 2];
         gray.data[i] = static_cast<uint8_t>(0.299f * r + 0.587f * g + 0.114f * b);
     }
+
+    return gray;
+}
+
+Image ImageLoader::toGrayscaleParallel(const Image& src) {
+    if (src.empty()) return {};
+    if (src.channels == 1) return src;
+
+    Image gray;
+    gray.width = src.width;
+    gray.height = src.height;
+    gray.channels = 1;
+    gray.data.resize(src.width * src.height);
+
+    int total = src.width * src.height;
+
+    tbb::parallel_for(
+        tbb::blocked_range<int>(0, total),
+        [&](const tbb::blocked_range<int>& range) {
+            for (int i = range.begin(); i < range.end(); ++i) {
+                uint8_t r = src.data[i * 3 + 0];
+                uint8_t g = src.data[i * 3 + 1];
+                uint8_t b = src.data[i * 3 + 2];
+                gray.data[i] = static_cast<uint8_t>(
+                    0.299f * r + 0.587f * g + 0.114f * b);
+            }
+        }
+    );
 
     return gray;
 }
@@ -66,7 +97,7 @@ bool ImageLoader::save(const Image& img, const std::string& path) {
         img.height,
         img.channels,
         img.data.data(),
-        img.width * img.channels  // stride in bytes
+        img.width * img.channels
     );
 
     if (!result) {
