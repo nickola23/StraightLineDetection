@@ -3,8 +3,10 @@
 #include "LineDetector.hpp"
 #include "HoughTransform.hpp"
 #include "PerformanceTimer.hpp"
+#include "Pipeline.hpp"
 #include <vector>
 #include <string>
+#include <filesystem>
 
 class ResultWriter {
 public:
@@ -22,4 +24,10 @@ public:
 
     // Visualize accumulator as a grayscale image (for documentation)
     static Image visualizeAccumulator(const HoughTransform::Accumulator& acc);
+
+    // Save all outputs for one pipeline result into its own subfolder
+    static void saveAll(const PipelineData& data,
+        const PerformanceTimer& timer,
+        const std::string& outputRoot,
+        double serialTotalMs = -1.0);
 };

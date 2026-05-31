@@ -1,11 +1,13 @@
 #pragma once
 #include <string>
+#include <vector>
+#include <filesystem>
 
 struct PipelineConfig {
 
     // --- Paths ---
     std::string inputPath = "input/";
-    std::string outputPath = "output/";
+    std::string outputPath = "output";
 
     // --- Edge detection ---
     int    edgeThreshold = 190;      // Sobel magnitude threshold (0-255)
@@ -26,4 +28,18 @@ struct PipelineConfig {
     bool   saveEdgeImage = true;
     bool   saveResultImage = true;
     bool   printTiming = true;
+
+    // Scan input folder and return all image paths
+    inline std::vector<std::string> scanInputFolder(const std::string& folder) {
+        std::vector<std::string> paths;
+        for (auto& entry : std::filesystem::directory_iterator(folder)) {
+            auto ext = entry.path().extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".png" || ext == ".jpg" ||
+                ext == ".jpeg" || ext == ".bmp")
+                paths.push_back(entry.path().string());
+        }
+        std::sort(paths.begin(), paths.end());
+        return paths;
+    }
 };

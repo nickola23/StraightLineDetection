@@ -75,7 +75,7 @@ PipelineData Pipeline::run(const std::string& imagePath)
         g, serial,
         [&](PipelineData data) -> PipelineData {
             timer_.start("5. Line detection");
-            data.lines = LineDetector::findLines(
+            data.lines = LineDetector::findLinesParallel(
                 data.accumulator,
                 config_.houghThreshold,
                 config_.nmsRadius,

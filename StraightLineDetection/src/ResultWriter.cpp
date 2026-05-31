@@ -1,10 +1,13 @@
 #include "ResultWriter.hpp"
 #include "PerformanceTimer.hpp"
+#include "ImageLoader.hpp"
 #include <cmath>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include "Pipeline.hpp"
+#include <filesystem>
 
 static const double PI = 3.14159265358979323846;
 
@@ -194,4 +197,29 @@ void ResultWriter::saveReport(const std::string& path,
 
     f << "\n================================================\n";
     std::cout << "[ResultWriter] Report saved: " << path << "\n";
+}
+
+void ResultWriter::saveAll(const PipelineData& data,
+    const PerformanceTimer& timer,
+    const std::string& outputRoot,
+    double serialTotalMs)
+{
+    std::string baseName = std::filesystem::path(data.imagePath).filename().string();
+    std::string stem = std::filesystem::path(data.imagePath).stem().string();
+
+    std::string folder = outputRoot + "/" + stem;
+    std::filesystem::create_directories(folder);
+
+    ImageLoader::save(data.gray, folder + "/gray.png");
+    ImageLoader::save(data.edges, folder + "/edges.png");
+
+    Image result = ResultWriter::drawLines(data.original, data.lines);
+    ImageLoader::save(result, folder + "/result.png");
+
+    Image accViz = ResultWriter::visualizeAccumulator(data.accumulator);
+    ImageLoader::save(accViz, folder + "/accumulator.png");
+
+    ResultWriter::saveReport(
+        folder + "/report.txt",
+        data.lines, timer, baseName, serialTotalMs);
 }
