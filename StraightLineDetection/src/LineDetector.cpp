@@ -3,9 +3,13 @@
 #include <iostream>
 #include <cmath>
 
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range2d.h>
+#include <tbb/concurrent_vector.h>
+
 static const double PI = 3.14159265358979323846;
 
-std::vector<Line> LineDetector::findLines(
+std::vector<Line> LineDetector::findLinesSerial(
     const HoughTransform::Accumulator& acc,
     int threshold,
     int nmsRadius,
@@ -77,6 +81,71 @@ std::vector<Line> LineDetector::findLines(
 
     std::cout << "[LineDetector] Candidates above threshold: " << candidates.size()
         << " | After NMS: " << lines.size() << " lines\n";
+
+    return lines;
+}
+
+std::vector<Line> LineDetector::findLinesParallel(
+    const HoughTransform::Accumulator& acc,
+    int threshold,
+    int nmsRadius,
+    int maxLines)
+{
+    // Step 1: parallel local maxima detection
+    // For each cell, check if it's the maximum and above threshold
+    tbb::concurrent_vector<std::pair<int, int>> maxima; // (votes, flat_index)
+
+    tbb::parallel_for(
+        tbb::blocked_range2d<int>(0, acc.rhoCount, 0, acc.thetaCount),
+        [&](const tbb::blocked_range2d<int>& range) {
+            for (int r = range.rows().begin(); r < range.rows().end(); ++r) {
+                for (int t = range.cols().begin(); t < range.cols().end(); ++t) {
+                    int v = acc.at(r, t);
+                    if (v < threshold) continue;
+
+                    // Check if this cell is the local maximum in nmsRadius window
+                    bool isMax = true;
+                    int rLo = std::max(0, r - nmsRadius);
+                    int rHi = std::min(acc.rhoCount - 1, r + nmsRadius);
+                    int tLo = std::max(0, t - nmsRadius);
+                    int tHi = std::min(acc.thetaCount - 1, t + nmsRadius);
+
+                    for (int nr = rLo; nr <= rHi && isMax; ++nr)
+                        for (int nt = tLo; nt <= tHi && isMax; ++nt)
+                            if (acc.at(nr, nt) > v) isMax = false;
+
+                    if (isMax)
+                        maxima.push_back({ v, r * acc.thetaCount + t });
+                }
+            }
+        }
+    );
+
+    // Step 2: sort by votes descending
+    std::vector<std::pair<int, int>> sorted(maxima.begin(), maxima.end());
+    std::sort(sorted.begin(), sorted.end(),
+        [](const auto& a, const auto& b) { return a.first > b.first; });
+
+    if ((int)sorted.size() > maxLines)
+        sorted.resize(maxLines);
+
+    // Step 3: convert to Line structs
+    std::vector<Line> lines;
+    lines.reserve(sorted.size());
+
+    for (auto& [votes, idx] : sorted) {
+        int rhoIdx = idx / acc.thetaCount;
+        int thetaIdx = idx % acc.thetaCount;
+
+        Line line;
+        line.rho = rhoIdx * acc.rhoStep - acc.rhoMax;
+        line.theta = thetaIdx * acc.thetaStep * PI / 180.0;
+        line.votes = votes;
+        lines.push_back(line);
+    }
+
+    std::cout << "[LineDetector] Local maxima found: " << maxima.size()
+        << " | Returning top: " << lines.size() << " lines\n";
 
     return lines;
 }

@@ -14,7 +14,13 @@ public:
     // threshold : min votes to be considered a line
     // nmsRadius : suppression window — prevents duplicate nearby lines
     // maxLines  : cap on how many lines to return (strongest first)
-    static std::vector<Line> findLines(
+    static std::vector<Line> findLinesSerial(
+        const HoughTransform::Accumulator& acc,
+        int threshold,
+        int nmsRadius = 10,
+        int maxLines = 50);
+
+    static std::vector<Line> findLinesParallel(
         const HoughTransform::Accumulator& acc,
         int threshold,
         int nmsRadius = 10,
