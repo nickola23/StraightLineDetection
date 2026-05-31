@@ -431,3 +431,6 @@ FodyWeavers.xsd
 # JetBrains IDE (CLion / Rider) specifični fajlovi
 .idea/
 *.slnx.user
+
+# Exclude all generated outputs
+StraightLineDetection/output/
