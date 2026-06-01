@@ -18,7 +18,7 @@ struct PipelineConfig {
     double rhoStep = 2.0;           // Distance resolution in pixels
 
     // --- Line detection ---
-    int    maxLines = 10;           // Max lines to extract
+    int    maxLines = 9;           // Max lines to extract
     int    nmsRadius = 20;          // Non-maximum suppression radius in accumulator
 
     // --- Parallelism ---
