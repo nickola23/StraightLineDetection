@@ -433,4 +433,5 @@ FodyWeavers.xsd
 *.slnx.user
 
 # Exclude all generated outputs
+StraightLineDetection/input/
 StraightLineDetection/output/
