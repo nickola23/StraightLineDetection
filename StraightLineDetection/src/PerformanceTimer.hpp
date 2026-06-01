@@ -1,9 +1,11 @@
 #pragma once
 #include <chrono>
 #include <string>
-#include <unordered_map>
+#include <map>
+#include <vector>
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
 
 class PerformanceTimer {
 public:
@@ -11,6 +13,8 @@ public:
     using Duration = std::chrono::duration<double, std::milli>;
 
     void start(const std::string& phase) {
+        if (order_.find(phase) == order_.end())
+            order_[phase] = static_cast<int>(order_.size());
         starts_[phase] = Clock::now();
     }
 
@@ -25,21 +29,28 @@ public:
     }
 
     void printAll() const {
+        std::vector<std::pair<int, std::string>> sorted;
+        for (auto& [phase, idx] : order_)
+            sorted.push_back({ idx, phase });
+        std::sort(sorted.begin(), sorted.end());
+
         std::cout << "\n=== Timing results ===\n";
         double total = 0.0;
-        for (auto& [phase, ms] : durations_) {
-            std::cout << std::left << std::setw(28) << phase
+        for (auto& [idx, phase] : sorted) {
+            double ms = get(phase);
+            std::cout << std::left << std::setw(30) << phase
                 << std::right << std::setw(8) << std::fixed
                 << std::setprecision(2) << ms << " ms\n";
             total += ms;
         }
-        std::cout << std::string(38, '-') << "\n";
-        std::cout << std::left << std::setw(28) << "Total"
+        std::cout << std::string(40, '-') << "\n";
+        std::cout << std::left << std::setw(30) << "Total"
             << std::right << std::setw(8) << std::fixed
             << std::setprecision(2) << total << " ms\n";
     }
 
 private:
-    std::unordered_map<std::string, Clock::time_point> starts_;
-    std::unordered_map<std::string, double>            durations_;
+    std::map<std::string, Clock::time_point> starts_;
+    std::map<std::string, double>            durations_;
+    std::map<std::string, int>               order_;
 };
