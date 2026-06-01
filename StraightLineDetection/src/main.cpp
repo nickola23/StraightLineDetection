@@ -9,22 +9,43 @@
 #include "Pipeline.hpp"
 #include <tbb/global_control.h>
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <string>
 #include <filesystem>
 
+// Returns total compute time (excluding I/O) for a serial run on one image
+double runSerial(const Image& original, const PipelineConfig& config,
+    PerformanceTimer& timer)
+{
+    timer = PerformanceTimer();
+
+    timer.start("2. Grayscale conversion");
+    Image gray = ImageLoader::toGrayscaleSerial(original);
+    timer.stop("2. Grayscale conversion");
+
+    timer.start("3. Edge detection (Sobel)");
+    Image edges = EdgeDetector::sobelSerial(gray, config.edgeThreshold);
+    timer.stop("3. Edge detection (Sobel)");
+
+    timer.start("4. Hough transform");
+    auto acc = HoughTransform::computeSerial(
+        edges, config.thetaStepDeg, config.rhoStep);
+    timer.stop("4. Hough transform");
+
+    timer.start("5. Line detection");
+    LineDetector::findLinesParallel(
+        acc, config.houghThreshold, config.nmsRadius, config.maxLines);
+    timer.stop("5. Line detection");
+
+    return timer.get("2. Grayscale conversion") +
+        timer.get("3. Edge detection (Sobel)") +
+        timer.get("4. Hough transform") +
+        timer.get("5. Line detection");
+}
+
 int main() {
     PipelineConfig config;
-
-    // Pin thread count if set
-    std::unique_ptr<tbb::global_control> threadControl;
-    if (config.numThreads > 0) {
-        threadControl = std::make_unique<tbb::global_control>(
-            tbb::global_control::max_allowed_parallelism,
-            config.numThreads);
-    }
-
-    // Auto-scan input folder
     auto images = config.scanInputFolder(config.inputPath);
     if (images.empty()) {
         std::cerr << "No images found in: " << config.inputPath << "\n";
@@ -32,48 +53,29 @@ int main() {
     }
     std::cout << "Found " << images.size() << " images in "
         << config.inputPath << "\n";
-
     std::filesystem::create_directories(config.outputPath);
 
-    //   SERIAL BASELINE - (run on first image only)
-    std::cout << "\n========== SERIAL BASELINE ("
+    //   SCALABILITY ANALYSIS
+    //   running once on first image
+    std::cout << "\n========== SCALABILITY ANALYSIS ("
         << images[0] << ") ==========\n";
-    PerformanceTimer serialTimer;
 
+    // Get serial compute baseline for scalability reference
+    PerformanceTimer scaleSerialTimer;
     Image firstImage = ImageLoader::load(images[0]);
     if (firstImage.empty()) return 1;
+    double scaleSerialMs = runSerial(firstImage, config, scaleSerialTimer);
 
-    serialTimer.start("1. Load image");
-    Image grayS = ImageLoader::toGrayscaleSerial(firstImage);
-    serialTimer.stop("1. Load image");
+    std::cout << "\nSerial compute baseline: "
+        << std::fixed << std::setprecision(2)
+        << scaleSerialMs << " ms\n\n";
 
-    serialTimer.start("3. Edge detection (Sobel)");
-    Image edgesS = EdgeDetector::sobelSerial(grayS, config.edgeThreshold);
-    serialTimer.stop("3. Edge detection (Sobel)");
-
-    serialTimer.start("4. Hough transform");
-    auto accS = HoughTransform::computeSerial(
-        edgesS, config.thetaStepDeg, config.rhoStep);
-    serialTimer.stop("4. Hough transform");
-
-    serialTimer.start("5. Line detection");
-    auto linesS = LineDetector::findLinesSerial(
-        accS, config.houghThreshold, config.nmsRadius, config.maxLines);
-    serialTimer.stop("5. Line detection");
-
-    serialTimer.printAll();
-    double serialTotal = serialTimer.get("3. Edge detection (Sobel)") +
-        serialTimer.get("4. Hough transform") +
-        serialTimer.get("5. Line detection");
-
-
-    // Parallel pipeline with 1,2,4,8 threads
-    std::cout << "\n========== SCALABILITY ANALYSIS ==========\n";
-    std::cout << std::left << std::setw(10) << "Threads"
-        << std::setw(16) << "Hough (ms)"
-        << std::setw(16) << "Total (ms)"
-        << "Speedup\n";
-    std::cout << std::string(50, '-') << "\n";
+    std::cout << std::left
+        << std::setw(10) << "Threads"
+        << std::setw(20) << "Hough (ms)"
+        << std::setw(24) << "Compute Time (ms)"
+        << "Speedup vs Serial\n";
+    std::cout << std::string(68, '-') << "\n";
 
     for (int threads : {1, 2, 4, 8}) {
         tbb::global_control gc(
@@ -82,43 +84,76 @@ int main() {
         Pipeline p(config);
         PipelineData d = p.run(images[0]);
 
-        double total = p.timer().get("3. Edge detection (Sobel)") +
+        double computeMs = p.timer().get("2. Grayscale conversion") +
+            p.timer().get("3. Edge detection (Sobel)") +
             p.timer().get("4. Hough transform") +
             p.timer().get("5. Line detection");
 
-        std::cout << std::left << std::setw(10) << threads
-            << std::setw(16) << std::fixed << std::setprecision(2)
+        std::cout << std::left
+            << std::setw(10) << threads
+            << std::setw(20) << std::fixed << std::setprecision(2)
             << p.timer().get("4. Hough transform")
-            << std::setw(16) << total
-            << std::setprecision(2) << (serialTotal / total) << "x\n";
+            << std::setw(24) << computeMs
+            << std::setprecision(2) << (scaleSerialMs / computeMs)
+            << "x\n";
     }
 
-    //   PARALLEL PIPELINE
+    //   PER-IMAGE PIPELINE
+    //   Serial baseline recalculated for EACH image
     Pipeline pipeline(config);
 
     for (const auto& imgPath : images) {
-        std::cout << "\n========== PIPELINE: " << imgPath
-            << " ==========\n";
+        std::cout << "\n========== IMAGE: " << imgPath << " ==========\n";
 
-        PipelineData data = pipeline.run(imgPath);
-        if (data.original.empty()) {
+        // Load once — shared by serial and parallel runs
+        Image img = ImageLoader::load(imgPath);
+        if (img.empty()) {
             std::cerr << "Skipping " << imgPath << "\n";
             continue;
         }
 
-        const auto& t = pipeline.timer();
-        t.printAll();
+        // Serial run for this image
+        std::cout << "\n  [Serial]\n";
+        PerformanceTimer serialTimer;
+        double serialComputeMs = runSerial(img, config, serialTimer);
+        serialTimer.printAll();
 
-        double parallelTotal = t.get("3. Edge detection (Sobel)") +
-            t.get("4. Hough transform") +
-            t.get("5. Line detection");
+        // Parallel run for this image
+        std::cout << "\n  [Parallel - flow_graph]\n";
+        PipelineData data = pipeline.run(imgPath);
+        if (data.getOriginal().empty()) {
+            std::cerr << "Skipping parallel run for " << imgPath << "\n";
+            continue;
+        }
+        pipeline.timer().printAll();
 
-        std::cout << "\n--- Speedup vs serial ---\n";
-        std::cout << "Serial  : " << serialTotal << " ms\n";
-        std::cout << "Parallel: " << parallelTotal << " ms\n";
-        std::cout << "Speedup : " << (serialTotal / parallelTotal) << "x\n";
+        double parallelComputeMs =
+            pipeline.timer().get("2. Grayscale conversion") +
+            pipeline.timer().get("3. Edge detection (Sobel)") +
+            pipeline.timer().get("4. Hough transform") +
+            pipeline.timer().get("5. Line detection");
 
-        ResultWriter::saveAll(data, t, config.outputPath, serialTotal);
+        double pipelineTotalMs =
+            pipeline.timer().get("1. Load image") +
+            parallelComputeMs;
+
+        // Speedup summary
+        std::cout << "\n  --- Results ---\n";
+        std::cout << "  Detected lines              : "
+            << data.getLines().size() << "\n";
+        std::cout << "  Serial compute time         : "
+            << std::fixed << std::setprecision(2)
+            << serialComputeMs << " ms  (excl. I/O)\n";
+        std::cout << "  Parallel compute time       : "
+            << parallelComputeMs << " ms  (excl. I/O)\n";
+        std::cout << "  Total pipeline time         : "
+            << pipelineTotalMs << " ms  (incl. I/O)\n";
+        std::cout << "  Speedup (compute only)      : "
+            << (serialComputeMs / parallelComputeMs) << "x\n";
+
+        // Save outputs
+        ResultWriter::saveAll(data, pipeline.timer(),
+            config.outputPath, serialComputeMs);
     }
 
     std::cout << "\nAll done. Results in: " << config.outputPath << "\n";

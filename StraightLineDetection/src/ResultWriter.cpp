@@ -204,22 +204,20 @@ void ResultWriter::saveAll(const PipelineData& data,
     const std::string& outputRoot,
     double serialTotalMs)
 {
-    std::string baseName = std::filesystem::path(data.imagePath).filename().string();
     std::string stem = std::filesystem::path(data.imagePath).stem().string();
-
+    std::string baseName = std::filesystem::path(data.imagePath).filename().string();
     std::string folder = outputRoot + "/" + stem;
     std::filesystem::create_directories(folder);
 
-    ImageLoader::save(data.gray, folder + "/gray.png");
-    ImageLoader::save(data.edges, folder + "/edges.png");
+    ImageLoader::save(data.getGray(), folder + "/gray.png");
+    ImageLoader::save(data.getEdges(), folder + "/edges.png");
 
-    Image result = ResultWriter::drawLines(data.original, data.lines);
+    Image result = ResultWriter::drawLines(data.getOriginal(), data.getLines());
     ImageLoader::save(result, folder + "/result.png");
 
-    Image accViz = ResultWriter::visualizeAccumulator(data.accumulator);
+    Image accViz = ResultWriter::visualizeAccumulator(data.getAccumulator());
     ImageLoader::save(accViz, folder + "/accumulator.png");
 
-    ResultWriter::saveReport(
-        folder + "/report.txt",
-        data.lines, timer, baseName, serialTotalMs);
+    ResultWriter::saveReport(folder + "/report.txt",
+        data.getLines(), timer, baseName, serialTotalMs);
 }
