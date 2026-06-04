@@ -15,8 +15,7 @@ Image ImageLoader::load(const std::string& path) {
     Image img;
     int w, h, ch;
 
-    // Force load as RGB (3 channels) so we always know the format
-    // For grayscale support change to 0
+    // Force load as RGB - 3 channels
     unsigned char* rawData = stbi_load(path.c_str(), &w, &h, &ch, 3);
 
     if (!rawData) {

@@ -34,26 +34,24 @@ std::vector<Line> LineDetector::findLinesSerial(
         }
     }
 
-    // Sort by votes descending — strongest lines first
+	// Step 2: sort by votes descending
     std::sort(candidates.begin(), candidates.end(),
         [](const Candidate& a, const Candidate& b) {
             return a.votes > b.votes;
         });
 
-    // Step 2: for each candidate, suppress all nearby candidates
+    // Step 3: for each candidate, suppress all nearby candidates
     std::vector<bool> suppressed(candidates.size(), false);
 
     for (size_t i = 0; i < candidates.size(); ++i) {
         if (suppressed[i]) continue;
 
-        // Suppress all weaker candidates within nmsRadius window
         for (size_t j = i + 1; j < candidates.size(); ++j) {
             if (suppressed[j]) continue;
 
             int dRho = std::abs(candidates[i].rhoIdx - candidates[j].rhoIdx);
             int dTheta = std::abs(candidates[i].thetaIdx - candidates[j].thetaIdx);
 
-            // Handle theta wrap-around
             if (dTheta > acc.thetaCount / 2)
                 dTheta = acc.thetaCount - dTheta;
 
@@ -62,7 +60,7 @@ std::vector<Line> LineDetector::findLinesSerial(
         }
     }
 
-    // Step 3: convert surviving candidates to Line structs
+    // Step 4: convert to Line structs
     std::vector<Line> lines;
     lines.reserve(maxLines);
 
@@ -70,9 +68,7 @@ std::vector<Line> LineDetector::findLinesSerial(
         if (suppressed[i]) continue;
 
         Line line;
-        // Convert rho index back to actual rho value
         line.rho = candidates[i].rhoIdx * acc.rhoStep - acc.rhoMax;
-        // Convert theta index to radians
         line.theta = candidates[i].thetaIdx * acc.thetaStep * PI / 180.0;
         line.votes = candidates[i].votes;
 
@@ -91,9 +87,8 @@ std::vector<Line> LineDetector::findLinesParallel(
     int nmsRadius,
     int maxLines)
 {
-    // Step 1: parallel local maxima detection
-    // For each cell, check if it's the maximum and above threshold
-    tbb::concurrent_vector<std::pair<int, int>> maxima; // (votes, flat_index)
+    // Step 1: check if its maximum and above threshold
+    tbb::concurrent_vector<std::pair<int, int>> maxima;
 
     tbb::parallel_for(
         tbb::blocked_range2d<int>(0, acc.rhoCount, 0, acc.thetaCount),
@@ -103,7 +98,6 @@ std::vector<Line> LineDetector::findLinesParallel(
                     int v = acc.at(r, t);
                     if (v < threshold) continue;
 
-                    // Check if this cell is the local maximum in nmsRadius window
                     bool isMax = true;
                     int rLo = std::max(0, r - nmsRadius);
                     int rHi = std::min(acc.rhoCount - 1, r + nmsRadius);

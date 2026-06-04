@@ -32,14 +32,12 @@ Image EdgeDetector::sobelMagnitudeSerial(const Image& gray) {
     magnitude.channels = 1;
     magnitude.data.resize(gray.width * gray.height, 0);
 
-    // Skip border pixels — needs 3x3 neighborhood
     for (int row = 1; row < gray.height - 1; ++row) {
         for (int col = 1; col < gray.width - 1; ++col) {
 
             int sumX = 0;
             int sumY = 0;
 
-            // Apply 3x3 kernels
             for (int ky = -1; ky <= 1; ++ky) {
                 for (int kx = -1; kx <= 1; ++kx) {
                     int pixel = gray.at(row + ky, col + kx);
@@ -48,10 +46,8 @@ Image EdgeDetector::sobelMagnitudeSerial(const Image& gray) {
                 }
             }
 
-            // Gradient magnitude
             int mag = std::abs(sumX) + std::abs(sumY);
 
-            // Clamp to [0, 255]
             magnitude.at(row, col) = static_cast<uint8_t>(std::min(mag, 255));
         }
     }
@@ -70,7 +66,6 @@ Image EdgeDetector::sobelSerial(const Image& gray, int threshold) {
     edges.data.resize(gray.width * gray.height, 0);
 
     for (int i = 0; i < gray.width * gray.height; ++i) {
-        // Binary threshold: edge pixel = 255, non-edge = 0
         edges.data[i] = (magnitude.data[i] >= threshold) ? 255 : 0;
     }
 

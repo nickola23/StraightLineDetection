@@ -14,7 +14,7 @@
 #include <string>
 #include <filesystem>
 
-// Returns total compute time (excluding I/O) for a serial run on one image
+// Returns total compute time for a serial run
 double runSerial(const Image& original, const PipelineConfig& config,
     PerformanceTimer& timer)
 {
@@ -55,12 +55,9 @@ int main() {
         << config.inputPath << "\n";
     std::filesystem::create_directories(config.outputPath);
 
-    //   SCALABILITY ANALYSIS
-    //   running once on first image
     std::cout << "\n========== SCALABILITY ANALYSIS ("
         << images[0] << ") ==========\n";
 
-    // Get serial compute baseline for scalability reference
     PerformanceTimer scaleSerialTimer;
     Image firstImage = ImageLoader::load(images[0]);
     if (firstImage.empty()) return 1;
@@ -98,27 +95,23 @@ int main() {
             << "x\n";
     }
 
-    //   PER-IMAGE PIPELINE
-    //   Serial baseline recalculated for EACH image
+    // PER-IMAGE PIPELINE
     Pipeline pipeline(config);
 
     for (const auto& imgPath : images) {
         std::cout << "\n========== IMAGE: " << imgPath << " ==========\n";
 
-        // Load once — shared by serial and parallel runs
         Image img = ImageLoader::load(imgPath);
         if (img.empty()) {
             std::cerr << "Skipping " << imgPath << "\n";
             continue;
         }
 
-        // Serial run for this image
         std::cout << "\n  [Serial]\n";
         PerformanceTimer serialTimer;
         double serialComputeMs = runSerial(img, config, serialTimer);
         serialTimer.printAll();
 
-        // Parallel run for this image
         std::cout << "\n  [Parallel - flow_graph]\n";
         PipelineData data = pipeline.run(imgPath);
         if (data.getOriginal().empty()) {
@@ -137,7 +130,6 @@ int main() {
             pipeline.timer().get("1. Load image") +
             parallelComputeMs;
 
-        // Speedup summary
         std::cout << "\n  --- Results ---\n";
         std::cout << "  Detected lines              : "
             << data.getLines().size() << "\n";
@@ -151,7 +143,6 @@ int main() {
         std::cout << "  Speedup (compute only)      : "
             << (serialComputeMs / parallelComputeMs) << "x\n";
 
-        // Save outputs
         ResultWriter::saveAll(data, pipeline.timer(),
             config.outputPath, serialComputeMs);
     }

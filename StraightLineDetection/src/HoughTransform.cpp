@@ -29,13 +29,11 @@ HoughTransform::Accumulator HoughTransform::computeSerial(
     acc.rhoStep = rhoStep;
     acc.thetaStep = thetaStepDeg;
 
-    // Number of bins
     acc.rhoCount = static_cast<int>(2.0 * diag / rhoStep) + 1;
     acc.thetaCount = static_cast<int>(180.0 / thetaStepDeg);
 
     acc.data.assign(acc.rhoCount * acc.thetaCount, 0);
 
-    // Precompute cos/sin tables — avoids recomputing inside the hot loop
     std::vector<double> cosTable(acc.thetaCount);
     std::vector<double> sinTable(acc.thetaCount);
     for (int t = 0; t < acc.thetaCount; ++t) {
@@ -44,23 +42,18 @@ HoughTransform::Accumulator HoughTransform::computeSerial(
         sinTable[t] = std::sin(theta);
     }
 
-    // Vote
     int edgeCount = 0;
     for (int row = 0; row < edges.height; ++row) {
         for (int col = 0; col < edges.width; ++col) {
 
-            // Only process edge pixels
             if (edges.at(row, col) == 0) continue;
             ++edgeCount;
 
             for (int t = 0; t < acc.thetaCount; ++t) {
-                // Compute rho for this (x, y, theta)
                 double rho = col * cosTable[t] + row * sinTable[t];
 
-                // Map rho to accumulator index
                 int rhoIdx = static_cast<int>((rho + acc.rhoMax) / rhoStep);
 
-                // Bounds check
                 if (rhoIdx >= 0 && rhoIdx < acc.rhoCount) {
                     acc.at(rhoIdx, t)++;
                 }
@@ -92,7 +85,6 @@ HoughTransform::Accumulator HoughTransform::computeParallel(
     acc.thetaCount = static_cast<int>(180.0 / thetaStepDeg);
     acc.data.assign(acc.rhoCount * acc.thetaCount, 0);
 
-    // Precompute trig tables
     std::vector<double> cosTable(acc.thetaCount);
     std::vector<double> sinTable(acc.thetaCount);
     for (int t = 0; t < acc.thetaCount; ++t) {
@@ -103,8 +95,6 @@ HoughTransform::Accumulator HoughTransform::computeParallel(
 
     int totalRows = edges.height;
 
-    // combinable gives each thread a private accumulator
-    // No race conditions, no locks — merge at the end
     tbb::combinable<std::vector<int>> localAccs(
         [&]() { return std::vector<int>(acc.rhoCount * acc.thetaCount, 0); }
     );
@@ -129,7 +119,6 @@ HoughTransform::Accumulator HoughTransform::computeParallel(
         }
     );
 
-    // Merge all thread-local accumulators into the final one
     localAccs.combine_each([&](const std::vector<int>& local) {
         for (int i = 0; i < (int)acc.data.size(); ++i)
             acc.data[i] += local[i];

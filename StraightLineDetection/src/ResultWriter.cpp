@@ -21,7 +21,6 @@ static void drawLineOnImage(Image& img,
     double cosT = std::cos(theta);
     double sinT = std::sin(theta);
 
-    // Collect intersection points with the 4 image borders
     std::vector<std::pair<int, int>> pts;
 
     auto addIfValid = [&](double x, double y) {
@@ -33,10 +32,8 @@ static void drawLineOnImage(Image& img,
 
     // Solve for intersections with each border
     if (std::abs(sinT) > 1e-6) {
-        // Top border: y = 0
         addIfValid((rho) / cosT < 1e9 ? (sinT != 0 ? rho / cosT : 0)
             : 0, 0);
-        // y=0: x = rho/cosT
         double x_top = (std::abs(cosT) > 1e-6) ? (rho) / cosT : 1e9;
         
         addIfValid(rho / cosT, 0);
@@ -46,15 +43,11 @@ static void drawLineOnImage(Image& img,
     std::vector<double> tVals;
 
     if (std::abs(sinT) > 1e-6) {
-        // Left border x=0: t = rho*cosT / sinT
         tVals.push_back(rho * cosT / sinT);
-        // Right border x=W-1: t = (rho*cosT - (W-1)) / sinT
         tVals.push_back((rho * cosT - (W - 1)) / sinT);
     }
     if (std::abs(cosT) > 1e-6) {
-        // Top border y=0: t = -rho*sinT / cosT
         tVals.push_back(-rho * sinT / cosT);
-        // Bottom border y=H-1: t = (rho*sinT - (H-1)) / (-cosT)
         tVals.push_back(((H - 1) - rho * sinT) / cosT);
     }
 
@@ -68,7 +61,7 @@ static void drawLineOnImage(Image& img,
 
     if (pts.size() < 2) return;
 
-    // Bresenham's line algorithm between first and last valid border point
+    // Bresenhams algorithm between first and last border point
     int x0 = pts.front().first, y0 = pts.front().second;
     int x1 = pts.back().first, y1 = pts.back().second;
 
@@ -94,7 +87,6 @@ Image ResultWriter::drawLines(const Image& original,
     const std::vector<Line>& lines,
     uint8_t r, uint8_t g, uint8_t b)
 {
-    // Work on a copy so original is preserved
     Image result = original;
 
     if (result.channels == 1) {
@@ -121,7 +113,6 @@ Image ResultWriter::drawLines(const Image& original,
 Image ResultWriter::visualizeAccumulator(const HoughTransform::Accumulator& acc) {
     if (acc.data.empty()) return {};
 
-    // Find max value for normalization
     int maxVal = *std::max_element(acc.data.begin(), acc.data.end());
     if (maxVal == 0) return {};
 
