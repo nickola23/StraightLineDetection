@@ -11,7 +11,6 @@
 struct PipelineData {
     std::string imagePath;
 
-    // zero copy transfer between nodes
     std::shared_ptr<Image>                       original;
     std::shared_ptr<Image>                       gray;
     std::shared_ptr<Image>                       edges;
@@ -27,8 +26,13 @@ struct PipelineData {
 
 class Pipeline {
 public:
+	// Construct pipeline with given configuration
     explicit Pipeline(const PipelineConfig& config);
+
+	// Run the full pipeline on one image path and return all data
     PipelineData run(const std::string& imagePath);
+
+	// Access the timer to get timings for each phase
     const PerformanceTimer& timer() const { return timer_; }
 
 private:

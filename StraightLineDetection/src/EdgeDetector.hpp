@@ -3,14 +3,13 @@
 
 class EdgeDetector {
 public:
-    // Apply Sobel operator and threshold to produce binary edge image
-    // threshold: 0-255, pixels with gradient magnitude above this are edges
+    // Apply Sobel operator to produce binary edge image
     static Image sobelSerial(const Image& gray, int threshold = 50);
 
 	// Parallel version
     static Image sobelParallel(const Image& gray, int threshold = 50);
 
-    // Returns gradient magnitude image - not thresholded
+    // Returns gradient magnitude image
     static Image sobelMagnitudeSerial(const Image& gray);
 
 };

@@ -10,11 +10,14 @@ public:
         int thetaCount = 0;
         double rhoMax = 0.0;
         double rhoStep = 1.0;
-        double thetaStep = 1.0; // in degrees
+        double thetaStep = 1.0;
 
+		// Accessor for (rhoIdx, thetaIdx)
         int& at(int rhoIdx, int thetaIdx) {
             return data[rhoIdx * thetaCount + thetaIdx];
         }
+
+		// Const accessor for (rhoIdx, thetaIdx)
         const int& at(int rhoIdx, int thetaIdx) const {
             return data[rhoIdx * thetaCount + thetaIdx];
         }

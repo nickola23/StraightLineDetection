@@ -12,22 +12,26 @@ public:
     using Clock = std::chrono::high_resolution_clock;
     using Duration = std::chrono::duration<double, std::milli>;
 
+	// Start timing a phase
     void start(const std::string& phase) {
         if (order_.find(phase) == order_.end())
             order_[phase] = static_cast<int>(order_.size());
         starts_[phase] = Clock::now();
     }
 
+	// Stop timing a phase and record duration
     void stop(const std::string& phase) {
         auto end = Clock::now();
         durations_[phase] = Duration(end - starts_[phase]).count();
     }
 
+	// Get duration for a phase (ms)
     double get(const std::string& phase) const {
         auto it = durations_.find(phase);
         return (it != durations_.end()) ? it->second : 0.0;
     }
 
+	// Print all recorded timings in order
     void printAll() const {
         std::vector<std::pair<int, std::string>> sorted;
         for (auto& [phase, idx] : order_)
