@@ -14,7 +14,7 @@ struct PipelineConfig {
     double thetaStepDeg = 1.0;          // Angular resolution in degrees
     double rhoStep = 2.0;               // Distance resolution in pixels
 
-    int    maxLines = 9;                // Max lines to extract
+    int    maxLines = 6;                // Max lines to extract
     int    nmsRadius = 20;              // Non-maximum suppression radius in accumulator
 
     int    numThreads = 0;              // 0 = TBB automatic uses all cores
@@ -31,7 +31,8 @@ struct PipelineConfig {
             auto ext = entry.path().extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             if (ext == ".png" || ext == ".jpg" ||
-                ext == ".jpeg" || ext == ".bmp")
+                ext == ".jpeg" || ext == ".bmp" ||
+                ext == ".ppm")
                 paths.push_back(entry.path().string());
         }
 

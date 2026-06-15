@@ -6,14 +6,14 @@
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range2d.h>
 
-// Gx detects horizontal edges
+// Detects horizontal edges
 static const int Gx[3][3] = {
     {-1,  0,  1},
     {-2,  0,  2},
     {-1,  0,  1}
 };
 
-// Gy detects vertical edges
+// Detects vertical edges
 static const int Gy[3][3] = {
     {-1, -2, -1},
     { 0,  0,  0},
