@@ -134,6 +134,7 @@
     <ClCompile Include="src\LineDetector.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\Pipeline.cpp" />
+    <ClCompile Include="src\PipelineConfig.cpp" />
     <ClCompile Include="src\ResultWriter.cpp" />
   </ItemGroup>
   <ItemGroup>
