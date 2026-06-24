@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <filesystem>
 
 struct PipelineConfig {
 
@@ -24,19 +23,5 @@ struct PipelineConfig {
 	bool   printTiming = true;          // Print timing results to console
 
     // Scan input folder and return all image paths
-    inline std::vector<std::string> scanInputFolder(const std::string& folder) {
-        std::vector<std::string> paths;
-
-        for (auto& entry : std::filesystem::directory_iterator(folder)) {
-            auto ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            if (ext == ".png" || ext == ".jpg" ||
-                ext == ".jpeg" || ext == ".bmp" ||
-                ext == ".ppm")
-                paths.push_back(entry.path().string());
-        }
-
-        std::sort(paths.begin(), paths.end());
-        return paths;
-    }
+    std::vector<std::string> scanInputFolder(const std::string& folder) const;
 };
