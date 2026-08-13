@@ -88,31 +88,6 @@ Scaling is nearly linear up to 4 cores, with slight saturation at 8 threads due 
 
 ---
 
-## Class Structure
-
-```
-src/
-├── Image              
-├── PipelineConfig     
-├── PerformanceTimer   
-├── ImageLoader       
-├── EdgeDetector       
-├── HoughTransform     
-├── LineDetector       
-├── ResultWriter       
-└── Pipeline          
-```
-
-### Key design decisions
-
-**`HoughTransform::computeParallel`** — uses `tbb::combinable<vector<int>>` so each thread accumulates into a private copy with zero contention, then merges by summation. This eliminates mutexes entirely.
-
-**`LineDetector::findLines`** — parallel local maxima detection with `tbb::concurrent_vector` replaces a naive O(n²) sort-and-suppress approach. On buildings images (27,000+ candidates) this cuts line detection from **~390 ms → ~2 ms** (197× speedup in this phase alone).
-
-**`Pipeline::run`** — one `Pipeline` object is created outside the image loop and reused, avoiding graph re-initialization overhead per image.
-
----
-
 ## Configuration
 
 All parameters are set through `PipelineConfig`:
